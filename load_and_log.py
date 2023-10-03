@@ -1,22 +1,26 @@
 from bcc import BPF
 import time
 
-# Load BPF program
-with open("traffic_monitor.c", "r") as f:
-    bpf_text = f.read()
+b = BPF(src_file="traffic_monitor.c")
+b.attach_kprobe(event="ip_send_skb", fn_name="count_send_bytes")
+b.attach_kprobe(event="ip_rcv", fn_name="count_recv_bytes")
 
-b = BPF(text=bpf_text)
-b.attach_kprobe(event="ip_rcv", fn_name="count_bytes")
-b.attach_kprobe(event="ipt_do_table", fn_name="count_bytes")
-
-log_path = "lo_traffic.log"
+send_log = open("lo_traffic_send.log", "w")
+recv_log = open("lo_traffic_recv.log", "w")
 
 while True:
-    try:
-        with open(log_path, "a") as log_file:
-            for k, v in b["bytes_count"].items():
-                log_file.write("{},{},{},{}\n".format(time.time(), k.pid, k.comm, v.value))
-            b["bytes_count"].clear()
-        time.sleep(1)
-    except KeyboardInterrupt:
-        break
+    send_bytes_count = b.get_table("send_bytes_count")
+    recv_bytes_count = b.get_table("recv_bytes_count")
+
+    for key, val in send_bytes_count.items():
+        send_log.write("{},{},{},{}\n".format(time.time(), key.pid, key.comm.decode('utf-8', 'replace'), val.value))
+    for key, val in recv_bytes_count.items():
+        recv_log.write("{},{},{},{}\n".format(time.time(), key.pid, key.comm.decode('utf-8', 'replace'), val.value))
+
+    send_bytes_count.clear()
+    recv_bytes_count.clear()
+
+    time.sleep(1)
+
+send_log.close()
+recv_log.close()

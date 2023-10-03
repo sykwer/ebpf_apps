@@ -1,29 +1,23 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 
-log_path = "lo_traffic.log"
-df = pd.read_csv(log_path, names=["timestamp", "pid", "comm", "bytes"])
+def plot_traffic(logfile, pdf_name):
+    df = pd.read_csv(logfile, header=None, names=["timestamp", "pid", "comm", "bytes"])
+    df_grouped = df.groupby(["pid", "comm"]).sum().nlargest(10, "bytes")
+    top_pids = df_grouped.index.get_level_values(0).tolist()
 
-# Convert timestamp column to datetime type for better handling
-df['timestamp'] = pd.to_datetime(df['timestamp'], unit='s')
+    for pid, comm in df_grouped.index:
+        data = df[(df["pid"] == pid) & (df["comm"] == comm)]
+        plt.plot(data["timestamp"].values, data["bytes"].values, label="{}:{}".format(pid, comm))
 
-# Group by pid, comm, and timestamp and sum bytes for each group
-grouped = df.groupby(["pid", "comm", "timestamp"])["bytes"].sum().reset_index()
+    plt.legend(loc="upper left")
+    plt.xlabel("Timestamp")
+    plt.ylabel("Bytes per Second")
+    plt.title(logfile)
 
-# Find top 25 processes based on total bytes
-top25_pids = grouped.groupby(["pid", "comm"])["bytes"].sum().nlargest(15).reset_index()["pid"].tolist()
+    plt.savefig(pdf_name, format="pdf")
+    plt.close()
 
-# Plot each of the top 25 processes
-plt.figure(figsize=(15, 7))
+plot_traffic("lo_traffic_send.log", "send.pdf")
+plot_traffic("lo_traffic_recv.log", "recv.pdf")
 
-for pid in top25_pids:
-    subset = grouped[grouped["pid"] == pid]
-    plt.plot(subset["timestamp"].to_numpy(), subset["bytes"].to_numpy(), label="pid={}, {}".format(pid, subset["comm"].iloc[0]))
-
-
-plt.xlabel("Timestamp")
-plt.ylabel("Bytes per second")
-plt.title("Top 25 Processes Traffic over Time")
-plt.legend()
-plt.tight_layout()
-plt.show()
