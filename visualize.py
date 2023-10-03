@@ -18,6 +18,6 @@ def plot_traffic(logfile, pdf_name):
     plt.savefig(pdf_name, format="pdf")
     plt.close()
 
-plot_traffic("lo_traffic_send.log", "send.pdf")
-plot_traffic("lo_traffic_recv.log", "recv.pdf")
+plot_traffic("send.log", "send.pdf")
+plot_traffic("recv.log", "recv.pdf")
 
